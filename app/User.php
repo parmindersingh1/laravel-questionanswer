@@ -52,5 +52,32 @@ class User extends Authenticatable
     public function favorites() {
         return $this->belongsToMany(Question::class, 'favorites')->withTimestamps(); //, 'user_id', 'question_id'
     }
+
+    public function voteQuestions() {
+        return $this->morphedByMany(Question::class, 'votable');
+    }
+
+    public function voteAnswers() {
+        return $this->morphedByMany(Answer::class, 'votable');
+    }
+
+    public function voteQuestion(Question $question, $vote) {
+        $voteQuestions = $this->voteQuestions();
+
+        if($voteQuestions->where('votable_id', $question->id)->exists()) {
+            $voteQuestions->updateExistingPivot($question, ['vote' => $vote]);
+        } else {
+            $voteQuestions->attach($question, ['vote' => $vote]);
+        }
+
+        // //events doesn't work in many to many
+
+        $question->load('votes'); //to refresh $question 
+        $downVotes = (int) $question->downVotes()->sum('vote');
+        $upVotes = (int) $question->upVotes()->sum('vote');
+        
+        $question->votes_count = $upVotes + $downVotes;
+        $question->save();
+    }
     
 }
